@@ -64,7 +64,7 @@ class AutoReacterBot(discord.Client):
             await message.add_reaction(config.REACTION_EMOJI)
             logger.info(f"Reacted to {message.author}'s message in #{message.channel}")
 
-            if "artist" in message.content.lower():
+            if "artist" in message.content.lower() or 744314482381160489 in [m.id for m in message.mentions]:
                 await message.reply("artist is clown")
                 logger.info(f"Replied to {message.author}'s message in #{message.channel}")
         except Exception as e:
