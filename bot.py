@@ -63,6 +63,10 @@ class AutoReacterBot(discord.Client):
         try:
             await message.add_reaction(config.REACTION_EMOJI)
             logger.info(f"Reacted to {message.author}'s message in #{message.channel}")
+
+            if "artist" in message.content.lower():
+                await message.reply("artist is clown")
+                logger.info(f"Replied to {message.author}'s message in #{message.channel}")
         except Exception as e:
             logger.error(f"Failed to react: {e}")
 
