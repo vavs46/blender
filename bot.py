@@ -20,6 +20,9 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
+reply_counter = 0
+reply_lock = asyncio.Lock()
+
 
 @app.route("/")
 def home():
@@ -32,10 +35,11 @@ def health():
 
 
 class AutoReacterBot(discord.Client):
-    def __init__(self, token: str, bot_id: int):
+    def __init__(self, token: str, bot_id: int, bots_count: int):
         super().__init__()
         self.token = token
         self.bot_id = bot_id
+        self.bots_count = bots_count
         self.ready = False
 
     async def on_ready(self):
@@ -65,8 +69,13 @@ class AutoReacterBot(discord.Client):
             logger.info(f"Reacted to {message.author}'s message in #{message.channel}")
 
             if "artist" in message.content.lower() or 744314482381160489 in [m.id for m in message.mentions]:
-                await message.reply("artist is clown")
-                logger.info(f"Replied to {message.author}'s message in #{message.channel}")
+                async with reply_lock:
+                    global reply_counter
+                    if self.bot_id == (reply_counter % len(bots)) + 1:
+                        await asyncio.sleep(1.0)
+                        await message.reply("artist is clown")
+                        reply_counter += 1
+                        logger.info(f"Replied to {message.author}'s message in #{message.channel}")
         except Exception as e:
             logger.error(f"Failed to react: {e}")
 
@@ -94,7 +103,7 @@ async def run_bots():
     
     for i, token in enumerate(tokens):
         logger.info(f"Starting bot {i + 1}/{len(tokens)} with token: {token[:20]}...")
-        bot = AutoReacterBot(token, i + 1)
+        bot = AutoReacterBot(token, i + 1, len(tokens))
         bots.append(bot)
         asyncio.create_task(bot.start_bot())
         await asyncio.sleep(2)
