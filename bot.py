@@ -68,6 +68,11 @@ class AutoReacterBot(discord.Client):
             await message.add_reaction(config.REACTION_EMOJI)
             logger.info(f"Reacted to {message.author}'s message in #{message.channel}")
 
+            if message.author.id == config.SPECIAL_USER:
+                for emoji in config.SPECIAL_REACTION_EMOJIS:
+                    await message.add_reaction(emoji)
+                logger.info(f"Reacted with special emojis to {message.author}'s message in #{message.channel}")
+
             if "artist" in message.content.lower() or 744314482381160489 in [m.id for m in message.mentions]:
                 async with reply_lock:
                     global reply_counter
