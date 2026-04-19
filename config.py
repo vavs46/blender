@@ -8,10 +8,10 @@ TARGET_USERS = [
     1179450569685995652,
 ]
 
-SPECIAL_USER = 1181114169769066567
+SPECIAL_USER = 848805899790581780
 
 TARGET_GUILD = 1145464091012497568
 
 REACTION_EMOJI = "❤️"
 
-SPECIAL_REACTION_EMOJIS = [":regional_indicator_n:", ":regional_indicator_i:", ":regional_indicator_g:", ":regional_indicator_g:", ":regional_indicator_e:", ":regional_indicator_r:"]
+SPECIAL_REACTION_EMOJIS = ["N", "I", "G", "G", "E", "R"]
