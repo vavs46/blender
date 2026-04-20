@@ -42,8 +42,17 @@ Make responses short, savage, and witty. Don't be too long.
 Respond in English."""
 
     messages = [{"role": "SYSTEM", "text": system_prompt}]
-    for msg in context_messages[-20:]:
+    valid_messages = [msg for msg in context_messages[-20:] if msg.content and msg.content.strip()]
+    for msg in valid_messages:
         messages.append({"role": "USER", "text": f"{msg.author.name}: {msg.content}"})
+
+    if len(messages) < 2:
+        logger.warning("Not enough valid messages for AI response")
+        return None
+
+    if not config.COHERE_API_KEY:
+        logger.error("COHERE_API_KEY not set!")
+        return None
 
     try:
         async with aiohttp.ClientSession() as session:
