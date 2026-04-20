@@ -145,9 +145,6 @@ class AutoReacterBot(discord.Client):
         
         if message.guild is None or message.guild.id != config.TARGET_GUILD:
             return
-            
-        if message.author.id not in config.TARGET_USERS:
-            return
         
         if message.author.id == self.user.id:
             return
@@ -160,49 +157,40 @@ class AutoReacterBot(discord.Client):
         if len(channel_context[channel_key]) > config.CONTEXT_MESSAGES:
             channel_context[channel_key] = channel_context[channel_key][-config.CONTEXT_MESSAGES:]
 
-        delay = random.uniform(1.0, 2.0)
-        await asyncio.sleep(delay)
+        if message.author.id in config.TARGET_USERS:
+            delay = random.uniform(1.0, 2.0)
+            await asyncio.sleep(delay)
 
-        try:
-            await message.add_reaction(config.REACTION_EMOJI)
-            logger.info(f"Reacted to {message.author}'s message in #{message.channel}")
+            try:
+                await message.add_reaction(config.REACTION_EMOJI)
+                logger.info(f"Reacted to {message.author}'s message in #{message.channel}")
 
-            if message.author.id == config.SPECIAL_USER:
-                for emoji in config.SPECIAL_REACTION_EMOJIS:
-                    await message.add_reaction(emoji)
-                logger.info(f"Reacted with special emojis to {message.author}'s message in #{message.channel}")
+                if message.author.id == config.SPECIAL_USER:
+                    for emoji in config.SPECIAL_REACTION_EMOJIS:
+                        await message.add_reaction(emoji)
+                    logger.info(f"Reacted with special emojis to {message.author}'s message in #{message.channel}")
 
-            if "artist" in message.content.lower() or 744314482381160489 in [m.id for m in message.mentions]:
-                async with reply_lock:
-                    global reply_counter
-                    if self.bot_id == (reply_counter % len(bots)) + 1:
-                        await asyncio.sleep(1.0)
-                        await message.reply("artist is clown")
-                        reply_counter += 1
-                        logger.info(f"Replied to {message.author}'s message in #{message.channel}")
+                if "artist" in message.content.lower() or 744314482381160489 in [m.id for m in message.mentions]:
+                    async with reply_lock:
+                        global reply_counter
+                        if self.bot_id == (reply_counter % len(bots)) + 1:
+                            await asyncio.sleep(1.0)
+                            await message.reply("artist is clown")
+                            reply_counter += 1
+                            logger.info(f"Replied to {message.author}'s message in #{message.channel}")
+            except Exception as e:
+                logger.error(f"Failed to react: {e}")
 
+        if message.author.id in config.MOCK_USERS:
             async with ai_lock:
                 context_msgs = await check_chat_context(message.channel)
                 
-                if len(context_msgs) >= config.CONTEXT_MESSAGES:
-                    trigger = contains_trigger_keyword(message.content)
-                    
-                    if trigger:
-                        ai_response = await get_ai_response(context_msgs, trigger, False)
-                        if ai_response and self.bot_id == 1:
-                            await asyncio.sleep(random.uniform(1.0, 2.0))
-                            await message.channel.send(ai_response)
-                            logger.info(f"AI mocked '{trigger}' in #{message.channel}")
-                    
-                    elif is_target_user_being_attacked(context_msgs):
-                        ai_response = await get_ai_response(context_msgs, "", True)
-                        if ai_response:
-                            await asyncio.sleep(random.uniform(1.0, 2.0))
-                            await message.channel.send(ai_response)
-                            logger.info(f"AI defended target user in #{message.channel}")
-
-        except Exception as e:
-            logger.error(f"Failed to react: {e}")
+                if len(context_msgs) >= 50:
+                    ai_response = await get_ai_response(context_msgs, message.author.name, False)
+                    if ai_response and self.bot_id == 1:
+                        await asyncio.sleep(random.uniform(1.0, 2.0))
+                        await message.channel.send(ai_response)
+                        logger.info(f"AI mocked {message.author.name} in #{message.channel}")
 
     async def start_bot(self):
         try:
