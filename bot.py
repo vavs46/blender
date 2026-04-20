@@ -23,7 +23,8 @@ app = Flask(__name__)
 
 reply_counter = 0
 reply_lock = asyncio.Lock()
-ai_lock = asyncio.Lock()
+mock_counter = 0
+mock_lock = asyncio.Lock()
 
 channel_context = {}
 
@@ -191,15 +192,18 @@ class AutoReacterBot(discord.Client):
                 logger.error(f"Failed to react: {e}")
 
         if message.author.id in config.MOCK_USERS:
-            async with ai_lock:
-                context_msgs = await check_chat_context(message.channel)
-                
-                if len(context_msgs) >= 50:
-                    ai_response = await get_ai_response(context_msgs, message.author.name, False)
-                    if ai_response and self.bot_id == 1:
-                        await asyncio.sleep(random.uniform(1.0, 2.0))
-                        await message.channel.send(ai_response)
-                        logger.info(f"AI mocked {message.author.name} in #{message.channel}")
+            async with mock_lock:
+                global mock_counter
+                if self.bot_id == (mock_counter % len(bots)) + 1:
+                    context_msgs = await check_chat_context(message.channel)
+                    
+                    if len(context_msgs) >= 50:
+                        ai_response = await get_ai_response(context_msgs, message.author.name, False)
+                        if ai_response:
+                            await asyncio.sleep(random.uniform(1.0, 2.0))
+                            await message.channel.send(ai_response)
+                            mock_counter += 1
+                            logger.info(f"AI mocked {message.author.name} in #{message.channel}")
 
     async def start_bot(self):
         try:
