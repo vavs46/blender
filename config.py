@@ -27,4 +27,9 @@ TARGET_GUILD = 1145464091012497568
 
 REACTION_EMOJI = "❤️"
 
-SPECIAL_REACTION_EMOJIS = ["🇳", "🇮", "🇬", "🇪", "🇷"]
+SPECIAL_REACTION_EMOJIS = ["🇳", "🇮", "🇬", "🇬", "🇪", "🇷"]
+
+COHERE_API_KEY = os.environ.get("COHERE_API_KEY", "")
+
+CONTEXT_MESSAGES = 500
+AI_TRIGGER_KEYWORDS = ["artist", "elektrikas", "boss"]
