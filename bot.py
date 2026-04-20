@@ -42,9 +42,15 @@ Make responses short, savage, and witty. Don't be too long.
 Respond in English."""
 
     messages = [{"role": "SYSTEM", "text": system_prompt}]
-    valid_messages = [msg for msg in context_messages[-20:] if msg.content and msg.content.strip()]
+    valid_messages = []
+    for msg in context_messages[-20:]:
+        if msg.content and msg.content.strip() and len(msg.content.strip()) > 0:
+            if not msg.attachments and not msg.embeds:
+                valid_messages.append(msg)
     for msg in valid_messages:
         messages.append({"role": "USER", "text": f"{msg.author.name}: {msg.content}"})
+
+    logger.info(f"Sending {len(messages)} messages to AI (filtered from {len(context_messages[-20:])} total)")
 
     if len(messages) < 2:
         logger.warning("Not enough valid messages for AI response")
@@ -63,18 +69,21 @@ Respond in English."""
                     "Content-Type": "application/json"
                 },
                 json={
-                    "model": "command-r",
+                    "model": "command-r-plus",
                     "messages": messages,
-                    "max_tokens": 100,
+                    "max_tokens": 150,
                     "temperature": 0.9
                 },
                 timeout=aiohttp.ClientTimeout(total=30)
             ) as resp:
                 result = await resp.json()
-                if "text" in result:
+                logger.info(f"AI API response: {result}")
+                if "text" in result and result["text"]:
                     return result["text"].strip()
                 elif "message" in result:
                     return result["message"]
+                elif "generations" in result and result["generations"]:
+                    return result["generations"][0].get("text", "").strip()
                 else:
                     logger.error(f"AI response error: {result}")
                     return None
