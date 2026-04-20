@@ -4,6 +4,7 @@ import os
 import random
 import sys
 
+import aiohttp
 import discord
 from flask import Flask
 
@@ -22,6 +23,87 @@ app = Flask(__name__)
 
 reply_counter = 0
 reply_lock = asyncio.Lock()
+ai_lock = asyncio.Lock()
+
+channel_context = {}
+
+
+async def get_ai_response(context_messages: list, trigger: str, is_defending: bool) -> str:
+    if is_defending:
+        system_prompt = f"""You are a funny, sassy discord chat defender. The target users are: {config.TARGET_USERS}.
+When someone tries to decrease/mock Attack or criticize these users, you must defend them with hilarious comebacks.
+Make responses short, funny, and witty. Don't be too long.
+Clan 'Jax' should be defended when referenced.
+Respond in English."""
+    else:
+        system_prompt = f"""You are a funny, savage discord chatter. When someone says "{trigger}" in the chat,
+you need to mock/decrease them in a funny way.
+Make responses short, savage, and witty. Don't be too long.
+Respond in English."""
+
+    messages = [{"role": "SYSTEM", "text": system_prompt}]
+    for msg in context_messages[-20:]:
+        messages.append({"role": "USER", "text": f"{msg.author.name}: {msg.content}"})
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                "https://api.cohere.ai/v1/chat",
+                headers={
+                    "Authorization": f"Bearer {config.COHERE_API_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "command-r",
+                    "messages": messages,
+                    "max_tokens": 100,
+                    "temperature": 0.9
+                },
+                timeout=aiohttp.ClientTimeout(total=30)
+            ) as resp:
+                result = await resp.json()
+                if "text" in result:
+                    return result["text"].strip()
+                elif "message" in result:
+                    return result["message"]
+                else:
+                    logger.error(f"AI response error: {result}")
+                    return None
+    except Exception as e:
+        logger.error(f"AI API error: {e}")
+        return None
+
+
+async def check_chat_context(channel: discord.TextChannel) -> list:
+    try:
+        messages = []
+        async for msg in channel.history(limit=config.CONTEXT_MESSAGES):
+            messages.append(msg)
+        return list(reversed(messages))
+    except Exception as e:
+        logger.error(f"Failed to get channel history: {e}")
+        return []
+
+
+def is_target_user_being_attacked(messages: list) -> bool:
+    negative_keywords = ["bad", "trash", "garbage", "suck", "worst", "hate", "loser", "fail", "noob", "clown", "dog", "shit", "fuck", "stupid", "idiot", "embarrassing"]
+    
+    for msg in messages[-10:]:
+        content_lower = msg.content.lower()
+        if any(user_id in content_lower for user_id in [str(uid) for uid in config.TARGET_USERS]):
+            if any(neg in content_lower for neg in negative_keywords):
+                return True
+        if "jax" in content_lower and any(neg in content_lower for neg in negative_keywords):
+            return True
+    return False
+
+
+def contains_trigger_keyword(content: str) -> str:
+    content_lower = content.lower()
+    for keyword in config.AI_TRIGGER_KEYWORDS:
+        if keyword in content_lower:
+            return keyword
+    return None
 
 
 @app.route("/")
@@ -61,6 +143,14 @@ class AutoReacterBot(discord.Client):
         if message.author.id == self.user.id:
             return
 
+        channel_key = f"{message.guild.id}-{message.channel.id}"
+        if channel_key not in channel_context:
+            channel_context[channel_key] = []
+        channel_context[channel_key].append(message)
+        
+        if len(channel_context[channel_key]) > config.CONTEXT_MESSAGES:
+            channel_context[channel_key] = channel_context[channel_key][-config.CONTEXT_MESSAGES:]
+
         delay = random.uniform(1.0, 2.0)
         await asyncio.sleep(delay)
 
@@ -81,6 +171,27 @@ class AutoReacterBot(discord.Client):
                         await message.reply("artist is clown")
                         reply_counter += 1
                         logger.info(f"Replied to {message.author}'s message in #{message.channel}")
+
+            async with ai_lock:
+                context_msgs = await check_chat_context(message.channel)
+                
+                if len(context_msgs) >= config.CONTEXT_MESSAGES:
+                    trigger = contains_trigger_keyword(message.content)
+                    
+                    if trigger:
+                        ai_response = await get_ai_response(context_msgs, trigger, False)
+                        if ai_response and self.bot_id == 1:
+                            await asyncio.sleep(random.uniform(1.0, 2.0))
+                            await message.channel.send(ai_response)
+                            logger.info(f"AI mocked '{trigger}' in #{message.channel}")
+                    
+                    elif is_target_user_being_attacked(context_msgs):
+                        ai_response = await get_ai_response(context_msgs, "", True)
+                        if ai_response:
+                            await asyncio.sleep(random.uniform(1.0, 2.0))
+                            await message.channel.send(ai_response)
+                            logger.info(f"AI defended target user in #{message.channel}")
+
         except Exception as e:
             logger.error(f"Failed to react: {e}")
 
